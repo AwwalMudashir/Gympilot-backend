@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: gympilot-postgres
+    environment:
+      POSTGRES_DB: gympilot
+      POSTGRES_USER: gympilot
+      POSTGRES_PASSWORD: gympilot
+    ports:
+      - "5432:5432"
+    volumes:
+      - gympilot_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gympilot -d gympilot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  gympilot_postgres_data:
