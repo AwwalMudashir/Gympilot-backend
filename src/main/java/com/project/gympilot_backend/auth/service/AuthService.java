@@ -176,6 +176,11 @@ public class AuthService {
         refreshTokenRepository.revokeAllForUser(user.getId(), Instant.now());
     }
 
+    @Transactional(readOnly = true)
+    public AuthUserResponse currentUser(User user) {
+        return AuthUserResponse.from(user, profileRepository.existsByUserId(user.getId()));
+    }
+
     private AuthResponse issueSession(User user, String ip, String userAgent, String verificationToken) {
         String rawRefreshToken = tokenHashService.generate();
         RefreshToken refreshToken = RefreshToken.builder()

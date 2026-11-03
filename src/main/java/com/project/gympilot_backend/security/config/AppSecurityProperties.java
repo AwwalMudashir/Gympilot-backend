@@ -9,7 +9,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app.security")
 public class AppSecurityProperties {
     public static final String DEFAULT_DEVELOPMENT_SECRET =
-            "gympilot-local-development-secret-change-before-production";
+            "OhCpmyaE+035thndxU1icGpdKOA/uGzKJYxIHLp1E7MlwbEx98sS1H1cqBXy0MdEY9l68Uz9GeMb6LQS1diauA==";
 
     private String jwtSecret = DEFAULT_DEVELOPMENT_SECRET;
     private String jwtIssuer = "gympilot-api";

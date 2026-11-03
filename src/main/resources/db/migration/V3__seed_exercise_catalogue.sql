@@ -1,0 +1,13 @@
+CREATE UNIQUE INDEX uq_workout_plans_user_week ON workout_plans(user_id, week_start_date);
+
+INSERT INTO exercises (id, code, name, instructions, muscle_group, equipment, camera_supported, active, created_at, updated_at, version) VALUES
+('00000000-0000-0000-0000-000000000101', 'BODYWEIGHT_SQUAT', 'Bodyweight Squat', 'Stand tall, brace your core, sit your hips back and lower with control before driving through your feet.', 'Lower body', 'Bodyweight', TRUE, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0),
+('00000000-0000-0000-0000-000000000102', 'BICEP_CURL', 'Dumbbell Bicep Curl', 'Keep your elbows close to your sides and curl the weights without swinging your torso.', 'Arms', 'Dumbbells', TRUE, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0),
+('00000000-0000-0000-0000-000000000103', 'PUSH_UP', 'Push-up', 'Keep a straight line from shoulders to heels and lower your chest with your elbows controlled.', 'Upper body', 'Bodyweight', FALSE, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0),
+('00000000-0000-0000-0000-000000000104', 'GLUTE_BRIDGE', 'Glute Bridge', 'Drive through your heels and squeeze your glutes at the top without overextending your back.', 'Lower body', 'Bodyweight', FALSE, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0),
+('00000000-0000-0000-0000-000000000105', 'REVERSE_LUNGE', 'Reverse Lunge', 'Step back softly, lower both knees with control and drive through the front foot to stand.', 'Lower body', 'Bodyweight', FALSE, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0),
+('00000000-0000-0000-0000-000000000106', 'PLANK', 'Forearm Plank', 'Brace your core, keep your hips level and maintain a long neutral line through your body.', 'Core', 'Bodyweight', FALSE, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0),
+('00000000-0000-0000-0000-000000000107', 'DEAD_BUG', 'Dead Bug', 'Keep your lower back supported while extending the opposite arm and leg slowly.', 'Core', 'Bodyweight', FALSE, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0),
+('00000000-0000-0000-0000-000000000108', 'MOUNTAIN_CLIMBER', 'Mountain Climber', 'Keep your shoulders over your hands and alternate driving each knee forward at a steady pace.', 'Conditioning', 'Bodyweight', FALSE, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0),
+('00000000-0000-0000-0000-000000000109', 'DUMBBELL_ROW', 'One-arm Dumbbell Row', 'Support your torso, pull the dumbbell toward your hip and lower it without rotating.', 'Back', 'Dumbbells', FALSE, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0),
+('00000000-0000-0000-0000-000000000110', 'SHOULDER_PRESS', 'Dumbbell Shoulder Press', 'Brace your core and press the weights overhead without leaning back.', 'Shoulders', 'Dumbbells', FALSE, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0);

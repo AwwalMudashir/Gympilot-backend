@@ -20,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -94,5 +95,12 @@ public class AuthController {
             HttpServletRequest request) {
         authService.changePassword(currentUserService.require(authentication), body);
         return ApiResponse.success("Password changed; sign in again on other devices", null, request.getRequestURI());
+    }
+
+    @GetMapping("/me")
+    public ApiResponse<com.project.gympilot_backend.auth.dto.AuthUserResponse> me(
+            Authentication authentication, HttpServletRequest request) {
+        var user = currentUserService.require(authentication);
+        return ApiResponse.success("Authenticated user retrieved", authService.currentUser(user), request.getRequestURI());
     }
 }

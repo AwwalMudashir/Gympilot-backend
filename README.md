@@ -11,25 +11,39 @@ Spring Boot 4 / Java 21 API for GymPilot Vision. PostgreSQL is managed with Flyw
    docker compose up -d
    ```
 
-3. Set a development JWT secret (at least 32 bytes) and start the API:
+3. Create your ignored local environment file, replace the placeholder secrets,
+   and start the API:
 
    ```powershell
-   $env:JWT_SECRET = "replace-this-with-a-long-random-development-secret"
+   Copy-Item .env.example .env
+   # Edit .env and set DB_PASSWORD, JWT_SECRET, and any service credentials.
    .\mvnw.cmd spring-boot:run
    ```
 
-The default local database is `jdbc:postgresql://localhost:5432/gympilot`, with username and password `gympilot`. Override it with `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD`. On first startup Flyway applies `V1__initial_schema.sql`.
+Spring Boot imports `.env` from the project directory for local development.
+Operating-system and deployment environment variables take precedence. The
+default local database URL is `jdbc:postgresql://localhost:5432/gympilot` with
+username `gympilot`; set its password with `DB_PASSWORD`. Flyway applies the
+schema, media, and exercise-catalogue migrations automatically.
+
+If `java -version` reports Java 17 but Android Studio is installed, its bundled Java 21 runtime can be used in PowerShell:
+
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
+$env:Path = "$env:JAVA_HOME\bin;$env:Path"
+```
 
 Health check: `GET http://localhost:8080/actuator/health`
 
 ### Cloudinary image storage
 
-Create a Cloudinary account and set these server-side environment variables before starting the API:
+Create a Cloudinary account and set these server-side values in `.env` before
+starting the API:
 
-```powershell
-$env:CLOUDINARY_CLOUD_NAME = "your-cloud-name"
-$env:CLOUDINARY_API_KEY = "your-api-key"
-$env:CLOUDINARY_API_SECRET = "your-api-secret"
+```properties
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_API_SECRET=your-api-secret
 ```
 
 Never put the API secret in the React Native application. Authenticated clients upload `multipart/form-data` using the `file` field:
@@ -54,6 +68,16 @@ JPEG, PNG, WebP, and GIF are accepted up to 5 MB. The API verifies both the decl
 - `POST /api/auth/change-password` (Bearer token required)
 
 Account endpoints are under `/api/users/me`; fitness profile endpoints are under `/api/profile` and `/api/profile/me`. All other routes require a valid access token unless explicitly allowed in `SecurityConfig`.
+
+## Exercise and workout endpoints
+
+- `GET /api/exercises` returns the seeded exercise catalogue.
+- `GET /api/exercises/{exerciseId}` returns one exercise.
+- `POST /api/workouts/plans/generate` creates or replaces the authenticated user's current rule-based weekly plan.
+- `GET /api/workouts/plans/current` returns the current weekly plan.
+- `GET /api/workouts/today` returns today's workout from that plan.
+
+Plan generation uses the user's goal, experience level, available equipment, selected workout days, and preferred session duration. A completed fitness profile is required before generating a plan.
 
 For local UI work only, `EXPOSE_DEVELOPMENT_TOKENS=true` includes email-verification/reset tokens in the response. Keep it `false` outside local development. Production startup rejects the built-in development JWT secret.
 
