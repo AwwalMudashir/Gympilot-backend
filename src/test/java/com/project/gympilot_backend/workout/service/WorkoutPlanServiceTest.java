@@ -34,12 +34,14 @@ class WorkoutPlanServiceTest {
     @Mock WorkoutPlanItemRepository itemRepository;
     @Mock ExerciseRepository exerciseRepository;
     @Mock UserProfileRepository profileRepository;
+    @Mock PlanExplanationService explanationService;
     private WorkoutPlanService service;
     private User user;
 
     @BeforeEach
     void setUp() {
-        service = new WorkoutPlanService(planRepository, itemRepository, exerciseRepository, profileRepository);
+        service = new WorkoutPlanService(
+                planRepository, itemRepository, exerciseRepository, profileRepository, explanationService);
         user = User.builder().email("member@example.com").firstName("Gym").lastName("Pilot").build();
         user.setId(UUID.randomUUID());
     }
@@ -62,7 +64,7 @@ class WorkoutPlanServiceTest {
                 exercise("ROW", "Row", "Back", "Dumbbells", false));
         List<WorkoutPlanItem> storedItems = new ArrayList<>();
 
-        when(planRepository.findFirstByUserIdAndWeekStartDateOrderByCreatedAtDesc(any(), any()))
+        when(planRepository.findFirstByUserIdAndWeekStartDateAndStatusOrderByCreatedAtDesc(any(), any(), any()))
                 .thenReturn(Optional.empty());
         when(profileRepository.findByUserId(user.getId())).thenReturn(Optional.of(profile));
         when(exerciseRepository.findAllByActiveTrueOrderByNameAsc()).thenReturn(exercises);
@@ -79,6 +81,7 @@ class WorkoutPlanServiceTest {
         });
         when(itemRepository.findAllByWorkoutPlanIdOrderByDayOfWeekAscItemOrderAsc(any()))
                 .thenAnswer(ignored -> storedItems);
+        when(explanationService.explain(any(), anyList())).thenReturn("A balanced beginner plan.");
 
         var result = service.generate(user);
 
@@ -88,6 +91,55 @@ class WorkoutPlanServiceTest {
                 .containsExactly(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY);
         assertThat(result.days()).allSatisfy(day -> assertThat(day.exercises()).hasSize(4));
         assertThat(result.days().getFirst().exercises().getFirst().sets()).isEqualTo(2);
+    }
+
+    @Test
+    void generatesDifferentPrescriptionForIntermediateWeightLossProfile() {
+        UserProfile profile = UserProfile.builder()
+                .user(user)
+                .experienceLevel(ExperienceLevel.INTERMEDIATE)
+                .fitnessGoal(FitnessGoal.WEIGHT_LOSS)
+                .availableEquipment(Set.of())
+                .preferredWorkoutDays(Set.of(DayOfWeek.TUESDAY, DayOfWeek.SATURDAY))
+                .daysPerWeek(2)
+                .workoutDurationMinutes(25)
+                .build();
+        List<Exercise> exercises = List.of(
+                exercise("SQUAT", "Squat", "Lower body", "Bodyweight", true),
+                exercise("PUSH_UP", "Push-up", "Upper body", "Bodyweight", false),
+                exercise("PLANK", "Plank", "Core", "Bodyweight", true));
+        List<WorkoutPlanItem> storedItems = new ArrayList<>();
+
+        when(planRepository.findFirstByUserIdAndWeekStartDateAndStatusOrderByCreatedAtDesc(any(), any(), any()))
+                .thenReturn(Optional.empty());
+        when(profileRepository.findByUserId(user.getId())).thenReturn(Optional.of(profile));
+        when(exerciseRepository.findAllByActiveTrueOrderByNameAsc()).thenReturn(exercises);
+        when(planRepository.save(any(WorkoutPlan.class))).thenAnswer(invocation -> {
+            WorkoutPlan plan = invocation.getArgument(0);
+            if (plan.getId() == null) plan.setId(UUID.randomUUID());
+            return plan;
+        });
+        when(itemRepository.saveAll(anyList())).thenAnswer(invocation -> {
+            List<WorkoutPlanItem> items = invocation.getArgument(0);
+            items.forEach(item -> item.setId(UUID.randomUUID()));
+            storedItems.addAll(items);
+            return items;
+        });
+        when(itemRepository.findAllByWorkoutPlanIdOrderByDayOfWeekAscItemOrderAsc(any()))
+                .thenAnswer(ignored -> storedItems);
+        when(explanationService.explain(any(), anyList())).thenReturn("A focused conditioning plan.");
+
+        var result = service.generate(user);
+
+        assertThat(result.workoutDays()).isEqualTo(2);
+        assertThat(result.totalExercises()).isEqualTo(6);
+        assertThat(result.days()).extracting(day -> day.day())
+                .containsExactly(DayOfWeek.TUESDAY, DayOfWeek.SATURDAY);
+        assertThat(result.days()).allSatisfy(day -> day.exercises().forEach(item -> {
+            assertThat(item.sets()).isEqualTo(3);
+            assertThat(item.targetRepetitions()).isEqualTo(12);
+            assertThat(item.restSeconds()).isEqualTo(45);
+        }));
     }
 
     private Exercise exercise(String code, String name, String muscle, String equipment, boolean camera) {

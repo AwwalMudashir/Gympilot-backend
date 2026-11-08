@@ -35,6 +35,12 @@ public class WorkoutPlanController {
                 workoutPlanService.generate(currentUserService.require(authentication)), request.getRequestURI());
     }
 
+    @PostMapping("/plans/regenerate")
+    public ApiResponse<WorkoutPlanResponse> regenerate(Authentication authentication, HttpServletRequest request) {
+        return ApiResponse.success("Weekly workout plan regenerated",
+                workoutPlanService.regenerate(currentUserService.require(authentication)), request.getRequestURI());
+    }
+
     @GetMapping("/today")
     public ApiResponse<TodayWorkoutResponse> today(Authentication authentication, HttpServletRequest request) {
         return ApiResponse.success("Today's workout retrieved",

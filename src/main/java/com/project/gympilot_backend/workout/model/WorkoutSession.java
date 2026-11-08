@@ -29,6 +29,8 @@ public class WorkoutSession extends BaseEntity {
     private WorkoutPlan workoutPlan;
     @Column(name = "scheduled_date")
     private LocalDate scheduledDate;
+    @Column(name = "workout_day")
+    private Integer workoutDay;
     @Column(name = "started_at")
     private Instant startedAt;
     @Column(name = "completed_at")
@@ -39,4 +41,6 @@ public class WorkoutSession extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "difficulty_rating", length = 30)
     private DifficultyRating difficultyRating;
+    @Column(length = 500)
+    private String notes;
 }

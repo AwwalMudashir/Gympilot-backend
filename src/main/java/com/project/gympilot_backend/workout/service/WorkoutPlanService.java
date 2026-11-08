@@ -41,24 +41,28 @@ public class WorkoutPlanService {
     private final WorkoutPlanItemRepository itemRepository;
     private final ExerciseRepository exerciseRepository;
     private final UserProfileRepository profileRepository;
+    private final PlanExplanationService explanationService;
 
     public WorkoutPlanService(
             WorkoutPlanRepository planRepository,
             WorkoutPlanItemRepository itemRepository,
             ExerciseRepository exerciseRepository,
-            UserProfileRepository profileRepository
+            UserProfileRepository profileRepository,
+            PlanExplanationService explanationService
     ) {
         this.planRepository = planRepository;
         this.itemRepository = itemRepository;
         this.exerciseRepository = exerciseRepository;
         this.profileRepository = profileRepository;
+        this.explanationService = explanationService;
     }
 
     @Transactional(readOnly = true)
     public WorkoutPlanResponse current(User user) {
         LocalDate weekStart = weekStart(LocalDate.now(ZoneOffset.UTC));
         WorkoutPlan plan = planRepository
-                .findFirstByUserIdAndWeekStartDateOrderByCreatedAtDesc(user.getId(), weekStart)
+                .findFirstByUserIdAndWeekStartDateAndStatusOrderByCreatedAtDesc(
+                        user.getId(), weekStart, PlanStatus.ACTIVE)
                 .orElseThrow(() -> new ResourceNotFoundException("No workout plan exists for this week"));
         return response(plan);
     }
@@ -66,9 +70,24 @@ public class WorkoutPlanService {
     @Transactional
     public WorkoutPlanResponse generate(User user) {
         LocalDate weekStart = weekStart(LocalDate.now(ZoneOffset.UTC));
-        var existing = planRepository.findFirstByUserIdAndWeekStartDateOrderByCreatedAtDesc(user.getId(), weekStart);
+        var existing = planRepository.findFirstByUserIdAndWeekStartDateAndStatusOrderByCreatedAtDesc(
+                user.getId(), weekStart, PlanStatus.ACTIVE);
         if (existing.isPresent()) return response(existing.get());
+        return buildPlan(user, weekStart);
+    }
 
+    @Transactional
+    public WorkoutPlanResponse regenerate(User user) {
+        LocalDate weekStart = weekStart(LocalDate.now(ZoneOffset.UTC));
+        planRepository.findFirstByUserIdAndWeekStartDateAndStatusOrderByCreatedAtDesc(
+                user.getId(), weekStart, PlanStatus.ACTIVE).ifPresent(plan -> {
+                    plan.setStatus(PlanStatus.ARCHIVED);
+                    planRepository.save(plan);
+                });
+        return buildPlan(user, weekStart);
+    }
+
+    private WorkoutPlanResponse buildPlan(User user, LocalDate weekStart) {
         UserProfile profile = profileRepository.findByUserId(user.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Complete your fitness profile before generating a plan"));
         List<Exercise> eligible = eligibleExercises(profile);
@@ -80,7 +99,7 @@ public class WorkoutPlanService {
                 .user(user)
                 .weekStartDate(weekStart)
                 .status(PlanStatus.ACTIVE)
-                .explanation(explanation(profile))
+                .explanation("Generating your personalised plan explanation.")
                 .build());
 
         List<DayOfWeek> days = workoutDays(profile);
@@ -103,6 +122,8 @@ public class WorkoutPlanService {
             }
         }
         itemRepository.saveAll(items);
+        plan.setExplanation(explanationService.explain(profile, items));
+        planRepository.save(plan);
         return response(plan);
     }
 
@@ -177,12 +198,6 @@ public class WorkoutPlanService {
             rest = 75;
         }
         return new int[]{sets, reps, rest};
-    }
-
-    private String explanation(UserProfile profile) {
-        return "Built for " + profile.getFitnessGoal().name().toLowerCase(Locale.ROOT).replace('_', ' ')
-                + " with " + profile.getDaysPerWeek() + " training days, "
-                + profile.getWorkoutDurationMinutes() + "-minute sessions and your available equipment.";
     }
 
     private String dayTitle(List<WorkoutPlanItem> items) {
