@@ -20,7 +20,7 @@ public class PlanExplanationService {
 
     public PlanExplanationService(
             ObjectProvider<ChatModel> chatModelProvider,
-            @Value("${app.ai.plan-explanation-enabled:false}") boolean aiEnabled
+            @Value("${app.ai.plan-explanation-enabled:true}") boolean aiEnabled
     ) {
         this.chatModelProvider = chatModelProvider;
         this.aiEnabled = aiEnabled;

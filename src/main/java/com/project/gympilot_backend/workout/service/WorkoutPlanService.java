@@ -1,7 +1,6 @@
 package com.project.gympilot_backend.workout.service;
 
 import com.project.gympilot_backend.common.exception.ResourceNotFoundException;
-import com.project.gympilot_backend.profile.model.ExperienceLevel;
 import com.project.gympilot_backend.profile.model.FitnessGoal;
 import com.project.gympilot_backend.profile.model.UserProfile;
 import com.project.gympilot_backend.profile.repository.UserProfileRepository;
@@ -33,6 +32,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class WorkoutPlanService {
+    private static final int MIN_REST_SECONDS = 30;
+    private static final int MAX_EXERCISES_PER_SESSION = 8;
     private static final List<DayOfWeek> DEFAULT_DAYS = List.of(
             DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY,
             DayOfWeek.TUESDAY, DayOfWeek.THURSDAY, DayOfWeek.SATURDAY, DayOfWeek.SUNDAY);
@@ -103,19 +104,18 @@ public class WorkoutPlanService {
                 .build());
 
         List<DayOfWeek> days = workoutDays(profile);
-        int exercisesPerDay = exercisesPerDay(profile.getWorkoutDurationMinutes());
-        int[] prescription = prescription(profile);
+        SessionPrescription prescription = sessionPrescription(profile, eligible.size());
         List<WorkoutPlanItem> items = new ArrayList<>();
         for (int dayIndex = 0; dayIndex < days.size(); dayIndex++) {
-            for (int order = 0; order < exercisesPerDay; order++) {
+            for (int order = 0; order < prescription.exerciseCount(); order++) {
                 Exercise exercise = eligible.get((dayIndex * 2 + order) % eligible.size());
                 items.add(WorkoutPlanItem.builder()
                         .workoutPlan(plan)
                         .exercise(exercise)
                         .dayOfWeek(days.get(dayIndex).getValue())
-                        .sets(prescription[0])
-                        .targetRepetitions(prescription[1])
-                        .restSeconds(prescription[2])
+                        .sets(prescription.sets())
+                        .targetRepetitions(prescription.repetitions())
+                        .restSeconds(prescription.restSeconds())
                         .itemOrder(order + 1)
                         .cameraSupported(exercise.isCameraSupported())
                         .build());
@@ -148,7 +148,8 @@ public class WorkoutPlanService {
                         .add(item));
         List<WorkoutDayResponse> days = grouped.entrySet().stream()
                 .map(entry -> new WorkoutDayResponse(
-                        entry.getKey(), dayTitle(entry.getValue()), estimateMinutes(entry.getValue()),
+                        entry.getKey(), dayTitle(entry.getValue()),
+                        WorkoutTimingCalculator.estimateMinutes(entry.getValue()),
                         entry.getValue().stream().map(WorkoutPlanItemResponse::from).toList()))
                 .toList();
         return new WorkoutPlanResponse(
@@ -176,28 +177,70 @@ public class WorkoutPlanService {
         return result.stream().sorted().toList();
     }
 
-    private int exercisesPerDay(Integer duration) {
-        if (duration == null || duration <= 30) return 3;
-        if (duration <= 50) return 4;
-        return 5;
+    private SessionPrescription sessionPrescription(UserProfile profile, int eligibleExerciseCount) {
+        int targetMinutes = profile.getWorkoutDurationMinutes() == null
+                ? 30
+                : Math.max(10, profile.getWorkoutDurationMinutes());
+        int targetSeconds = targetMinutes * 60;
+        int repetitions = repetitions(profile);
+        int preferredRestSeconds = preferredRestSeconds(profile);
+        int maxSets = switch (profile.getExperienceLevel()) {
+            case BEGINNER -> 3;
+            case INTERMEDIATE -> 4;
+            case ADVANCED -> 5;
+        };
+        int maxExercises = Math.max(1, Math.min(MAX_EXERCISES_PER_SESSION, eligibleExerciseCount));
+        SessionPrescription best = null;
+
+        for (int sets = 2; sets <= maxSets; sets++) {
+            for (int restSeconds = preferredRestSeconds;
+                    restSeconds >= MIN_REST_SECONDS;
+                    restSeconds -= 5) {
+                for (int exerciseCount = 1; exerciseCount <= maxExercises; exerciseCount++) {
+                    int estimatedSeconds = WorkoutTimingCalculator.estimateSeconds(
+                            exerciseCount, sets, repetitions, restSeconds);
+                    if (estimatedSeconds > targetSeconds) continue;
+
+                    SessionPrescription candidate = new SessionPrescription(
+                            exerciseCount, sets, repetitions, restSeconds, estimatedSeconds);
+                    if (isBetterFit(candidate, best)) best = candidate;
+                }
+            }
+        }
+
+        if (best != null) return best;
+        int estimatedSeconds = WorkoutTimingCalculator.estimateSeconds(
+                1, 2, repetitions, MIN_REST_SECONDS);
+        return new SessionPrescription(1, 2, repetitions, MIN_REST_SECONDS, estimatedSeconds);
     }
 
-    private int[] prescription(UserProfile profile) {
-        int sets = profile.getExperienceLevel() == ExperienceLevel.BEGINNER ? 2 : 3;
+    private int repetitions(UserProfile profile) {
         int reps = 10;
-        int rest = 60;
         if (profile.getFitnessGoal() == FitnessGoal.STRENGTH) {
-            sets = profile.getExperienceLevel() == ExperienceLevel.BEGINNER ? 3 : 4;
             reps = 6;
-            rest = 90;
         } else if (profile.getFitnessGoal() == FitnessGoal.WEIGHT_LOSS) {
             reps = 12;
-            rest = 45;
-        } else if (profile.getFitnessGoal() == FitnessGoal.MUSCLE_GAIN) {
-            reps = 10;
-            rest = 75;
         }
-        return new int[]{sets, reps, rest};
+        return reps;
+    }
+
+    private int preferredRestSeconds(UserProfile profile) {
+        if (profile.getFitnessGoal() == FitnessGoal.STRENGTH) return 90;
+        if (profile.getFitnessGoal() == FitnessGoal.WEIGHT_LOSS) return 45;
+        if (profile.getFitnessGoal() == FitnessGoal.MUSCLE_GAIN) return 75;
+        return 60;
+    }
+
+    private boolean isBetterFit(SessionPrescription candidate, SessionPrescription current) {
+        if (current == null) return true;
+        if (candidate.estimatedSeconds() != current.estimatedSeconds()) {
+            return candidate.estimatedSeconds() > current.estimatedSeconds();
+        }
+        if (candidate.sets() != current.sets()) return candidate.sets() > current.sets();
+        if (candidate.exerciseCount() != current.exerciseCount()) {
+            return candidate.exerciseCount() < current.exerciseCount();
+        }
+        return candidate.restSeconds() > current.restSeconds();
     }
 
     private String dayTitle(List<WorkoutPlanItem> items) {
@@ -206,11 +249,15 @@ public class WorkoutPlanService {
         return first == null ? "Full body training" : first + " focus";
     }
 
-    private int estimateMinutes(List<WorkoutPlanItem> items) {
-        return Math.max(15, items.stream().mapToInt(item -> item.getSets() * 4).sum());
-    }
-
     private LocalDate weekStart(LocalDate date) {
         return date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
     }
+
+    private record SessionPrescription(
+            int exerciseCount,
+            int sets,
+            int repetitions,
+            int restSeconds,
+            int estimatedSeconds
+    ) {}
 }

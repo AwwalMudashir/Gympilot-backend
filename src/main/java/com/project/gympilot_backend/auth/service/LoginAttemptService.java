@@ -32,6 +32,15 @@ public class LoginAttemptService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void clearFailures(UUID userId) {
+        userRepository.findById(userId).ifPresent(user -> {
+            user.setFailedLoginAttempts(0);
+            user.setLockedUntil(null);
+            userRepository.save(user);
+        });
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public User recordSuccess(UUID userId) {
         User user = userRepository.findById(userId).orElseThrow();
         user.setFailedLoginAttempts(0);

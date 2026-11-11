@@ -9,7 +9,7 @@ public record RegisterRequest(
         @NotBlank @Size(max = 80) String firstName,
         @NotBlank @Size(max = 80) String lastName,
         @NotBlank @Email @Size(max = 320) String email,
-        @NotBlank @Size(min = 12, max = 72)
+        @NotBlank @Size(min = 8, max = 40, message = "must be between 8 and 40 characters")
         @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).+$",
                 message = "must include upper-case, lower-case, number and special characters")
         String password,

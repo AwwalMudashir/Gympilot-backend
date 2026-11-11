@@ -30,6 +30,7 @@ public class JwtTokenService {
                 .id(UUID.randomUUID().toString())
                 .claim("email", user.getEmail())
                 .claim("role", user.getRole().name())
+                .claim("email_verified", user.isEmailVerified())
                 .claim("type", "access")
                 .build();
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();

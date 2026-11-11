@@ -5,6 +5,5 @@ public record AuthResponse(
         String refreshToken,
         String tokenType,
         long expiresInSeconds,
-        AuthUserResponse user,
-        String developmentVerificationToken
+        AuthUserResponse user
 ) {}

@@ -6,6 +6,7 @@ import com.project.gympilot_backend.auth.dto.ForgotPasswordRequest;
 import com.project.gympilot_backend.auth.dto.LoginRequest;
 import com.project.gympilot_backend.auth.dto.RefreshTokenRequest;
 import com.project.gympilot_backend.auth.dto.RegisterRequest;
+import com.project.gympilot_backend.auth.dto.RegistrationResponse;
 import com.project.gympilot_backend.auth.dto.ResendVerificationRequest;
 import com.project.gympilot_backend.auth.dto.ResetPasswordRequest;
 import com.project.gympilot_backend.auth.dto.TokenDeliveryResponse;
@@ -33,11 +34,12 @@ public class AuthController {
     private final CurrentUserService currentUserService;
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<AuthResponse>> register(
+    public ResponseEntity<ApiResponse<RegistrationResponse>> register(
             @Valid @RequestBody RegisterRequest body, HttpServletRequest request) {
-        AuthResponse response = authService.register(body, request.getRemoteAddr(), request.getHeader("User-Agent"));
+        RegistrationResponse response = authService.register(body);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Account created", response, request.getRequestURI()));
+                .body(ApiResponse.success("Account created; verify your email before signing in",
+                        response, request.getRequestURI()));
     }
 
     @PostMapping("/login")

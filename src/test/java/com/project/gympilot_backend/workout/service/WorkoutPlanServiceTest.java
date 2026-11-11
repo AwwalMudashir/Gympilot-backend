@@ -90,7 +90,8 @@ class WorkoutPlanServiceTest {
         assertThat(result.days()).extracting(day -> day.day())
                 .containsExactly(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY);
         assertThat(result.days()).allSatisfy(day -> assertThat(day.exercises()).hasSize(4));
-        assertThat(result.days().getFirst().exercises().getFirst().sets()).isEqualTo(2);
+        assertThat(result.days().getFirst().exercises().getFirst().sets()).isEqualTo(3);
+        assertThat(result.days()).allSatisfy(day -> assertThat(day.estimatedMinutes()).isLessThanOrEqualTo(45));
     }
 
     @Test
@@ -136,10 +137,62 @@ class WorkoutPlanServiceTest {
         assertThat(result.days()).extracting(day -> day.day())
                 .containsExactly(DayOfWeek.TUESDAY, DayOfWeek.SATURDAY);
         assertThat(result.days()).allSatisfy(day -> day.exercises().forEach(item -> {
-            assertThat(item.sets()).isEqualTo(3);
+            assertThat(item.sets()).isEqualTo(4);
             assertThat(item.targetRepetitions()).isEqualTo(12);
             assertThat(item.restSeconds()).isEqualTo(45);
         }));
+        assertThat(result.days()).allSatisfy(day -> assertThat(day.estimatedMinutes()).isLessThanOrEqualTo(25));
+    }
+
+    @Test
+    void fitsStrengthSessionsWithinThePreferredThirtyMinuteMaximum() {
+        UserProfile profile = UserProfile.builder()
+                .user(user)
+                .experienceLevel(ExperienceLevel.INTERMEDIATE)
+                .fitnessGoal(FitnessGoal.STRENGTH)
+                .availableEquipment(Set.of())
+                .preferredWorkoutDays(Set.of(DayOfWeek.MONDAY))
+                .daysPerWeek(1)
+                .workoutDurationMinutes(30)
+                .build();
+        List<Exercise> exercises = List.of(
+                exercise("SQUAT", "Squat", "Lower body", "Bodyweight", true),
+                exercise("PUSH_UP", "Push-up", "Upper body", "Bodyweight", false),
+                exercise("PLANK", "Plank", "Core", "Bodyweight", true),
+                exercise("LUNGE", "Lunge", "Lower body", "Bodyweight", false),
+                exercise("BRIDGE", "Glute bridge", "Lower body", "Bodyweight", false),
+                exercise("DEAD_BUG", "Dead bug", "Core", "Bodyweight", false),
+                exercise("CLIMBER", "Mountain climber", "Conditioning", "Bodyweight", false),
+                exercise("PIKE_PUSH_UP", "Pike push-up", "Shoulders", "Bodyweight", false));
+        List<WorkoutPlanItem> storedItems = new ArrayList<>();
+
+        when(planRepository.findFirstByUserIdAndWeekStartDateAndStatusOrderByCreatedAtDesc(any(), any(), any()))
+                .thenReturn(Optional.empty());
+        when(profileRepository.findByUserId(user.getId())).thenReturn(Optional.of(profile));
+        when(exerciseRepository.findAllByActiveTrueOrderByNameAsc()).thenReturn(exercises);
+        when(planRepository.save(any(WorkoutPlan.class))).thenAnswer(invocation -> {
+            WorkoutPlan plan = invocation.getArgument(0);
+            if (plan.getId() == null) plan.setId(UUID.randomUUID());
+            return plan;
+        });
+        when(itemRepository.saveAll(anyList())).thenAnswer(invocation -> {
+            List<WorkoutPlanItem> items = invocation.getArgument(0);
+            items.forEach(item -> item.setId(UUID.randomUUID()));
+            storedItems.addAll(items);
+            return items;
+        });
+        when(itemRepository.findAllByWorkoutPlanIdOrderByDayOfWeekAscItemOrderAsc(any()))
+                .thenAnswer(ignored -> storedItems);
+        when(explanationService.explain(any(), anyList())).thenReturn("A time-boxed strength plan.");
+
+        var result = service.generate(user);
+
+        assertThat(result.days()).hasSize(1);
+        assertThat(result.days().getFirst().estimatedMinutes()).isBetween(27, 30);
+        assertThat(result.days().getFirst().exercises()).allSatisfy(item -> {
+            assertThat(item.targetRepetitions()).isEqualTo(6);
+            assertThat(item.restSeconds()).isBetween(30, 90);
+        });
     }
 
     private Exercise exercise(String code, String name, String muscle, String equipment, boolean camera) {

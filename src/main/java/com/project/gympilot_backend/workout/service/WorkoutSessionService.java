@@ -20,6 +20,7 @@ import com.project.gympilot_backend.workout.repository.WorkoutPlanItemRepository
 import com.project.gympilot_backend.workout.repository.WorkoutPlanRepository;
 import com.project.gympilot_backend.workout.repository.WorkoutSessionRepository;
 import java.time.DayOfWeek;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -84,6 +85,8 @@ public class WorkoutSessionService {
         }
         List<WorkoutPlanItem> planItems = requirePlanItems(
                 session.getWorkoutPlan().getId(), DayOfWeek.of(session.getWorkoutDay()));
+        enforceMinimumDuration(session, planItems);
+
         Map<UUID, ExerciseCompletionRequest> supplied = request.results() == null ? Map.of()
                 : request.results().stream().collect(Collectors.toMap(
                         ExerciseCompletionRequest::exerciseId, Function.identity(), (first, ignored) -> first));
@@ -94,6 +97,21 @@ public class WorkoutSessionService {
             throw new BadRequestException(
                     "EXERCISE_NOT_IN_SESSION", "A submitted exercise is not part of this workout");
         }
+        if (!supplied.keySet().containsAll(plannedExerciseIds)) {
+            throw new BadRequestException(
+                    "WORKOUT_RESULTS_INCOMPLETE",
+                    "Finish every exercise and set before completing this workout");
+        }
+        boolean hasIncompleteExercise = planItems.stream().anyMatch(item -> {
+            ExerciseCompletionRequest completion = supplied.get(item.getExercise().getId());
+            return completion.completedSets() < item.getSets()
+                    || completion.completedRepetitions() < item.getTargetRepetitions();
+        });
+        if (hasIncompleteExercise) {
+            throw new BadRequestException(
+                    "WORKOUT_RESULTS_INCOMPLETE",
+                    "Finish every exercise and set before completing this workout");
+        }
 
         List<ExerciseResult> results = planItems.stream().map(item -> {
             ExerciseCompletionRequest completion = supplied.get(item.getExercise().getId());
@@ -101,10 +119,9 @@ public class WorkoutSessionService {
                     .workoutSession(session)
                     .exercise(item.getExercise())
                     .plannedSets(item.getSets())
-                    .completedSets(completion == null ? item.getSets() : completion.completedSets())
+                    .completedSets(completion.completedSets())
                     .plannedRepetitions(item.getTargetRepetitions())
-                    .completedRepetitions(completion == null
-                            ? item.getTargetRepetitions() : completion.completedRepetitions())
+                    .completedRepetitions(completion.completedRepetitions())
                     .build();
         }).toList();
         resultRepository.saveAll(results);
@@ -195,6 +212,22 @@ public class WorkoutSessionService {
 
     private BadRequestException invalidState(String message) {
         return new BadRequestException("WORKOUT_SESSION_STATE_INVALID", message);
+    }
+
+    private void enforceMinimumDuration(WorkoutSession session, List<WorkoutPlanItem> planItems) {
+        if (session.getStartedAt() == null) {
+            throw invalidState("This workout has no valid start time. Start it again before completing it");
+        }
+        long requiredSeconds = WorkoutTimingCalculator.estimateSeconds(planItems);
+        long elapsedSeconds = Math.max(0, Duration.between(session.getStartedAt(), Instant.now()).getSeconds());
+        if (elapsedSeconds >= requiredSeconds) return;
+
+        long remainingSeconds = requiredSeconds - elapsedSeconds;
+        long remainingMinutes = Math.max(1, (long) Math.ceil(remainingSeconds / 60.0));
+        throw new BadRequestException(
+                "WORKOUT_MINIMUM_TIME_NOT_REACHED",
+                "Keep going — about " + remainingMinutes
+                        + (remainingMinutes == 1 ? " minute remains" : " minutes remain"));
     }
 
     private String trimToNull(String value) {

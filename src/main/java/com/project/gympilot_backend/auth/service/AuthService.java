@@ -5,6 +5,7 @@ import com.project.gympilot_backend.auth.dto.AuthUserResponse;
 import com.project.gympilot_backend.auth.dto.ChangePasswordRequest;
 import com.project.gympilot_backend.auth.dto.LoginRequest;
 import com.project.gympilot_backend.auth.dto.RegisterRequest;
+import com.project.gympilot_backend.auth.dto.RegistrationResponse;
 import com.project.gympilot_backend.auth.dto.ResetPasswordRequest;
 import com.project.gympilot_backend.auth.dto.TokenDeliveryResponse;
 import com.project.gympilot_backend.auth.model.AccountToken;
@@ -14,6 +15,7 @@ import com.project.gympilot_backend.auth.repository.AccountTokenRepository;
 import com.project.gympilot_backend.auth.repository.RefreshTokenRepository;
 import com.project.gympilot_backend.common.exception.BadRequestException;
 import com.project.gympilot_backend.common.exception.ConflictException;
+import com.project.gympilot_backend.common.exception.ApiException;
 import com.project.gympilot_backend.common.exception.UnauthorizedException;
 import com.project.gympilot_backend.profile.repository.UserProfileRepository;
 import com.project.gympilot_backend.security.config.AppSecurityProperties;
@@ -45,7 +47,7 @@ public class AuthService {
     private final AppSecurityProperties properties;
 
     @Transactional
-    public AuthResponse register(RegisterRequest request, String ip, String userAgent) {
+    public RegistrationResponse register(RegisterRequest request) {
         ensurePasswordsMatch(request.password(), request.confirmPassword());
         String email = normalizeEmail(request.email());
         if (userRepository.existsByEmailIgnoreCase(email)) {
@@ -65,7 +67,10 @@ public class AuthService {
         String verificationToken = createAccountToken(user, AccountTokenPurpose.EMAIL_VERIFICATION,
                 properties.getEmailVerificationHours(), ChronoUnit.HOURS);
         notificationService.sendVerification(user, verificationToken);
-        return issueSession(user, ip, userAgent,
+        return new RegistrationResponse(
+                user.getId(),
+                user.getEmail(),
+                true,
                 properties.isExposeDevelopmentTokens() ? verificationToken : null);
     }
 
@@ -83,8 +88,13 @@ public class AuthService {
             }
             throw invalidCredentials();
         }
+        if (!user.isEmailVerified()) {
+            loginAttemptService.clearFailures(user.getId());
+            throw new ApiException(HttpStatus.FORBIDDEN, "EMAIL_NOT_VERIFIED",
+                    "Verify your email address before signing in");
+        }
         User authenticated = loginAttemptService.recordSuccess(user.getId());
-        return issueSession(authenticated, ip, userAgent, null);
+        return issueSession(authenticated, ip, userAgent);
     }
 
     @Transactional
@@ -92,12 +102,13 @@ public class AuthService {
         Instant now = Instant.now();
         RefreshToken stored = refreshTokenRepository.findByTokenHash(tokenHashService.hash(rawToken))
                 .orElseThrow(this::invalidRefreshToken);
-        if (!stored.isActive(now) || stored.getUser().getStatus() != UserStatus.ACTIVE) {
+        if (!stored.isActive(now) || stored.getUser().getStatus() != UserStatus.ACTIVE
+                || !stored.getUser().isEmailVerified()) {
             throw invalidRefreshToken();
         }
         stored.setRevokedAt(now);
         refreshTokenRepository.save(stored);
-        return issueSession(stored.getUser(), ip, userAgent, null);
+        return issueSession(stored.getUser(), ip, userAgent);
     }
 
     @Transactional
@@ -129,10 +140,16 @@ public class AuthService {
         ensurePasswordsMatch(request.newPassword(), request.confirmPassword());
         AccountToken token = requireUsableAccountToken(request.token(), AccountTokenPurpose.PASSWORD_RESET);
         User user = token.getUser();
+        if (user.getStatus() == UserStatus.INACTIVE) {
+            throw new ApiException(
+                    HttpStatus.FORBIDDEN,
+                    "ACCOUNT_INACTIVE",
+                    "This account has been deactivated; contact an administrator");
+        }
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         user.setFailedLoginAttempts(0);
         user.setLockedUntil(null);
-        user.setStatus(UserStatus.ACTIVE);
+        if (user.getStatus() == UserStatus.LOCKED) user.setStatus(UserStatus.ACTIVE);
         token.setConsumedAt(Instant.now());
         userRepository.save(user);
         accountTokenRepository.save(token);
@@ -160,6 +177,7 @@ public class AuthService {
         token.setConsumedAt(Instant.now());
         userRepository.save(token.getUser());
         accountTokenRepository.save(token);
+        refreshTokenRepository.revokeAllForUser(token.getUser().getId(), Instant.now());
     }
 
     @Transactional
@@ -181,7 +199,7 @@ public class AuthService {
         return AuthUserResponse.from(user, profileRepository.existsByUserId(user.getId()));
     }
 
-    private AuthResponse issueSession(User user, String ip, String userAgent, String verificationToken) {
+    private AuthResponse issueSession(User user, String ip, String userAgent) {
         String rawRefreshToken = tokenHashService.generate();
         RefreshToken refreshToken = RefreshToken.builder()
                 .user(user)
@@ -193,7 +211,7 @@ public class AuthService {
         refreshTokenRepository.save(refreshToken);
         boolean profileExists = profileRepository.existsByUserId(user.getId());
         return new AuthResponse(jwtTokenService.issueAccessToken(user), rawRefreshToken, "Bearer",
-                jwtTokenService.accessTokenSeconds(), AuthUserResponse.from(user, profileExists), verificationToken);
+                jwtTokenService.accessTokenSeconds(), AuthUserResponse.from(user, profileExists));
     }
 
     private String createAccountToken(User user, AccountTokenPurpose purpose, long amount, ChronoUnit unit) {
