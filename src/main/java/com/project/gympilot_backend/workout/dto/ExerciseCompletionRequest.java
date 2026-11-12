@@ -7,6 +7,7 @@ import java.util.UUID;
 public record ExerciseCompletionRequest(
         @NotNull UUID exerciseId,
         @NotNull @Min(0) Integer completedSets,
-        @NotNull @Min(0) Integer completedRepetitions
+        @NotNull @Min(0) Integer completedRepetitions,
+        boolean skipped
 ) {
 }

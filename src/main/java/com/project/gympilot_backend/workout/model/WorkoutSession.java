@@ -35,6 +35,24 @@ public class WorkoutSession extends BaseEntity {
     private Instant startedAt;
     @Column(name = "completed_at")
     private Instant completedAt;
+    @Column(name = "active_since")
+    private Instant activeSince;
+    @Column(name = "current_exercise_index", nullable = false)
+    @Builder.Default
+    private Integer currentExerciseIndex = 0;
+    @Column(name = "current_set_number", nullable = false)
+    @Builder.Default
+    private Integer currentSetNumber = 1;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "current_phase", nullable = false, length = 30)
+    @Builder.Default
+    private WorkoutPhase currentPhase = WorkoutPhase.WARM_UP;
+    @Column(name = "phase_remaining_seconds", nullable = false)
+    @Builder.Default
+    private Integer phaseRemainingSeconds = 45;
+    @Column(name = "elapsed_seconds", nullable = false)
+    @Builder.Default
+    private Integer elapsedSeconds = 0;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private SessionStatus status;

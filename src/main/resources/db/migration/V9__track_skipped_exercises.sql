@@ -1,0 +1,2 @@
+ALTER TABLE exercise_results
+    ADD COLUMN skipped BOOLEAN NOT NULL DEFAULT FALSE;

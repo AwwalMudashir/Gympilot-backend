@@ -4,7 +4,7 @@ import com.project.gympilot_backend.workout.model.WorkoutPlanItem;
 import java.util.List;
 
 public final class WorkoutTimingCalculator {
-    public static final int WARM_UP_SECONDS = 5 * 60;
+    public static final int WARM_UP_SECONDS = 45;
     public static final int REPETITION_SECONDS = 3;
     public static final int EXERCISE_TRANSITION_SECONDS = 45;
 

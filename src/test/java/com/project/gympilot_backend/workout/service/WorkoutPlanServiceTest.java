@@ -3,6 +3,7 @@ package com.project.gympilot_backend.workout.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.project.gympilot_backend.profile.model.ExperienceLevel;
@@ -139,9 +140,68 @@ class WorkoutPlanServiceTest {
         assertThat(result.days()).allSatisfy(day -> day.exercises().forEach(item -> {
             assertThat(item.sets()).isEqualTo(4);
             assertThat(item.targetRepetitions()).isEqualTo(12);
-            assertThat(item.restSeconds()).isEqualTo(45);
+            assertThat(item.restSeconds()).isEqualTo(30);
         }));
         assertThat(result.days()).allSatisfy(day -> assertThat(day.estimatedMinutes()).isLessThanOrEqualTo(25));
+    }
+
+    @Test
+    void usesAllSelectedTrainingDaysWhenStoredCountIsStale() {
+        UserProfile profile = UserProfile.builder()
+                .user(user)
+                .experienceLevel(ExperienceLevel.BEGINNER)
+                .fitnessGoal(FitnessGoal.GENERAL_FITNESS)
+                .availableEquipment(Set.of())
+                .preferredWorkoutDays(Set.of(
+                        DayOfWeek.MONDAY,
+                        DayOfWeek.TUESDAY,
+                        DayOfWeek.THURSDAY,
+                        DayOfWeek.SATURDAY))
+                .daysPerWeek(3)
+                .workoutDurationMinutes(30)
+                .build();
+        List<Exercise> exercises = List.of(
+                exercise("SQUAT", "Squat", "Lower body", "Bodyweight", true),
+                exercise("PUSH_UP", "Push-up", "Upper body", "Bodyweight", false),
+                exercise("PLANK", "Plank", "Core", "Bodyweight", false));
+        List<WorkoutPlanItem> storedItems = new ArrayList<>();
+        WorkoutPlan previousPlan = WorkoutPlan.builder()
+                .user(user)
+                .status(com.project.gympilot_backend.workout.model.PlanStatus.ACTIVE)
+                .build();
+        previousPlan.setId(UUID.randomUUID());
+
+        when(planRepository.findFirstByUserIdAndWeekStartDateAndStatusOrderByCreatedAtDesc(any(), any(), any()))
+                .thenReturn(Optional.of(previousPlan));
+        when(planRepository.saveAndFlush(previousPlan)).thenReturn(previousPlan);
+        when(profileRepository.findByUserId(user.getId())).thenReturn(Optional.of(profile));
+        when(exerciseRepository.findAllByActiveTrueOrderByNameAsc()).thenReturn(exercises);
+        when(planRepository.save(any(WorkoutPlan.class))).thenAnswer(invocation -> {
+            WorkoutPlan plan = invocation.getArgument(0);
+            if (plan.getId() == null) plan.setId(UUID.randomUUID());
+            return plan;
+        });
+        when(itemRepository.saveAll(anyList())).thenAnswer(invocation -> {
+            List<WorkoutPlanItem> items = invocation.getArgument(0);
+            items.forEach(item -> item.setId(UUID.randomUUID()));
+            storedItems.addAll(items);
+            return items;
+        });
+        when(itemRepository.findAllByWorkoutPlanIdOrderByDayOfWeekAscItemOrderAsc(any()))
+                .thenAnswer(ignored -> storedItems);
+        when(explanationService.explain(any(), anyList())).thenReturn("A four-day plan.");
+
+        var result = service.regenerate(user);
+
+        assertThat(previousPlan.getStatus())
+                .isEqualTo(com.project.gympilot_backend.workout.model.PlanStatus.ARCHIVED);
+        verify(planRepository).saveAndFlush(previousPlan);
+        assertThat(result.workoutDays()).isEqualTo(4);
+        assertThat(result.days()).extracting(day -> day.day()).containsExactly(
+                DayOfWeek.MONDAY,
+                DayOfWeek.TUESDAY,
+                DayOfWeek.THURSDAY,
+                DayOfWeek.SATURDAY);
     }
 
     @Test
@@ -191,7 +251,7 @@ class WorkoutPlanServiceTest {
         assertThat(result.days().getFirst().estimatedMinutes()).isBetween(27, 30);
         assertThat(result.days().getFirst().exercises()).allSatisfy(item -> {
             assertThat(item.targetRepetitions()).isEqualTo(6);
-            assertThat(item.restSeconds()).isBetween(30, 90);
+            assertThat(item.restSeconds()).isEqualTo(60);
         });
     }
 

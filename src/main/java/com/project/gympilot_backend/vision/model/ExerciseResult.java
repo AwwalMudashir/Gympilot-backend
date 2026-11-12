@@ -33,6 +33,9 @@ public class ExerciseResult extends BaseEntity {
     private Integer plannedRepetitions;
     @Column(name = "completed_repetitions")
     private Integer completedRepetitions;
+    @Builder.Default
+    @Column(name = "skipped", nullable = false)
+    private boolean skipped = false;
     @Column(name = "average_rep_duration_seconds", precision = 6, scale = 2)
     private BigDecimal averageRepDurationSeconds;
     @Column(name = "range_of_motion_score", precision = 5, scale = 2)

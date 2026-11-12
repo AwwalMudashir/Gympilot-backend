@@ -7,6 +7,7 @@ import com.project.gympilot_backend.workout.dto.CreateWorkoutSessionRequest;
 import com.project.gympilot_backend.workout.dto.RescheduleWorkoutSessionRequest;
 import com.project.gympilot_backend.workout.dto.SkipWorkoutSessionRequest;
 import com.project.gympilot_backend.workout.dto.WorkoutSessionResponse;
+import com.project.gympilot_backend.workout.dto.WorkoutProgressRequest;
 import com.project.gympilot_backend.workout.service.WorkoutSessionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -48,6 +49,18 @@ public class WorkoutSessionController {
     ) {
         return ApiResponse.success("Workout started",
                 sessionService.start(currentUserService.require(authentication), sessionId), request.getRequestURI());
+    }
+
+    @PatchMapping("/{sessionId}/pause")
+    public ApiResponse<WorkoutSessionResponse> pause(
+            Authentication authentication,
+            @PathVariable UUID sessionId,
+            @Valid @RequestBody WorkoutProgressRequest body,
+            HttpServletRequest request
+    ) {
+        return ApiResponse.success("Workout progress saved",
+                sessionService.pause(currentUserService.require(authentication), sessionId, body),
+                request.getRequestURI());
     }
 
     @PatchMapping("/{sessionId}/complete")

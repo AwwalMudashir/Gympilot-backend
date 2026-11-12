@@ -9,12 +9,14 @@ public record ExerciseResultResponse(
         Integer plannedSets,
         Integer completedSets,
         Integer plannedRepetitions,
-        Integer completedRepetitions
+        Integer completedRepetitions,
+        boolean skipped
 ) {
     public static ExerciseResultResponse from(ExerciseResult result) {
         return new ExerciseResultResponse(
                 result.getExercise().getId(), result.getExercise().getName(),
                 result.getPlannedSets(), result.getCompletedSets(),
-                result.getPlannedRepetitions(), result.getCompletedRepetitions());
+                result.getPlannedRepetitions(), result.getCompletedRepetitions(),
+                result.isSkipped());
     }
 }

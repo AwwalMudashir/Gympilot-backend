@@ -48,6 +48,10 @@ public class ProfileService {
     }
 
     private void apply(UserProfile profile, ProfileRequest request) {
+        var selectedWorkoutDays = new HashSet<>(request.preferredWorkoutDays() == null
+                ? java.util.Set.of()
+                : request.preferredWorkoutDays());
+
         profile.setAge(request.age());
         profile.setHeightCm(request.heightCm());
         profile.setWeightKg(request.weightKg());
@@ -55,8 +59,10 @@ public class ProfileService {
         profile.setFitnessGoal(request.fitnessGoal());
         profile.setPreferredWorkoutLocation(request.preferredWorkoutLocation().trim());
         profile.setAvailableEquipment(new HashSet<>(request.availableEquipment() == null ? java.util.Set.of() : request.availableEquipment()));
-        profile.setPreferredWorkoutDays(new HashSet<>(request.preferredWorkoutDays() == null ? java.util.Set.of() : request.preferredWorkoutDays()));
-        profile.setDaysPerWeek(request.daysPerWeek());
+        profile.setPreferredWorkoutDays(selectedWorkoutDays);
+        profile.setDaysPerWeek(selectedWorkoutDays.isEmpty()
+                ? request.daysPerWeek()
+                : selectedWorkoutDays.size());
         profile.setWorkoutDurationMinutes(request.workoutDurationMinutes());
         profile.setDailyWaterTargetMl(request.dailyWaterTargetMl());
         profile.setPreferredBedtime(request.preferredBedtime());

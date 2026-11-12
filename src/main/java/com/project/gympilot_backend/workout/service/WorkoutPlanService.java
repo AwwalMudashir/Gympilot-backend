@@ -32,7 +32,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class WorkoutPlanService {
-    private static final int MIN_REST_SECONDS = 30;
     private static final int MAX_EXERCISES_PER_SESSION = 8;
     private static final List<DayOfWeek> DEFAULT_DAYS = List.of(
             DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY,
@@ -83,7 +82,7 @@ public class WorkoutPlanService {
         planRepository.findFirstByUserIdAndWeekStartDateAndStatusOrderByCreatedAtDesc(
                 user.getId(), weekStart, PlanStatus.ACTIVE).ifPresent(plan -> {
                     plan.setStatus(PlanStatus.ARCHIVED);
-                    planRepository.save(plan);
+                    planRepository.saveAndFlush(plan);
                 });
         return buildPlan(user, weekStart);
     }
@@ -169,12 +168,12 @@ public class WorkoutPlanService {
     }
 
     private List<DayOfWeek> workoutDays(UserProfile profile) {
-        int count = Math.max(1, Math.min(7, profile.getDaysPerWeek()));
         List<DayOfWeek> preferred = profile.getPreferredWorkoutDays().stream().sorted().toList();
-        if (preferred.size() >= count) return preferred.subList(0, count);
-        List<DayOfWeek> result = new ArrayList<>(preferred);
-        DEFAULT_DAYS.stream().filter(day -> !result.contains(day)).limit(count - result.size()).forEach(result::add);
-        return result.stream().sorted().toList();
+        if (!preferred.isEmpty()) return preferred;
+
+        int requestedCount = profile.getDaysPerWeek() == null ? 3 : profile.getDaysPerWeek();
+        int count = Math.max(1, Math.min(7, requestedCount));
+        return DEFAULT_DAYS.stream().limit(count).sorted().toList();
     }
 
     private SessionPrescription sessionPrescription(UserProfile profile, int eligibleExerciseCount) {
@@ -183,7 +182,7 @@ public class WorkoutPlanService {
                 : Math.max(10, profile.getWorkoutDurationMinutes());
         int targetSeconds = targetMinutes * 60;
         int repetitions = repetitions(profile);
-        int preferredRestSeconds = preferredRestSeconds(profile);
+        int restSeconds = GoalRestDurationPolicy.secondsFor(profile.getFitnessGoal());
         int maxSets = switch (profile.getExperienceLevel()) {
             case BEGINNER -> 3;
             case INTERMEDIATE -> 4;
@@ -193,25 +192,21 @@ public class WorkoutPlanService {
         SessionPrescription best = null;
 
         for (int sets = 2; sets <= maxSets; sets++) {
-            for (int restSeconds = preferredRestSeconds;
-                    restSeconds >= MIN_REST_SECONDS;
-                    restSeconds -= 5) {
-                for (int exerciseCount = 1; exerciseCount <= maxExercises; exerciseCount++) {
-                    int estimatedSeconds = WorkoutTimingCalculator.estimateSeconds(
-                            exerciseCount, sets, repetitions, restSeconds);
-                    if (estimatedSeconds > targetSeconds) continue;
+            for (int exerciseCount = 1; exerciseCount <= maxExercises; exerciseCount++) {
+                int estimatedSeconds = WorkoutTimingCalculator.estimateSeconds(
+                        exerciseCount, sets, repetitions, restSeconds);
+                if (estimatedSeconds > targetSeconds) continue;
 
-                    SessionPrescription candidate = new SessionPrescription(
-                            exerciseCount, sets, repetitions, restSeconds, estimatedSeconds);
-                    if (isBetterFit(candidate, best)) best = candidate;
-                }
+                SessionPrescription candidate = new SessionPrescription(
+                        exerciseCount, sets, repetitions, restSeconds, estimatedSeconds);
+                if (isBetterFit(candidate, best)) best = candidate;
             }
         }
 
         if (best != null) return best;
         int estimatedSeconds = WorkoutTimingCalculator.estimateSeconds(
-                1, 2, repetitions, MIN_REST_SECONDS);
-        return new SessionPrescription(1, 2, repetitions, MIN_REST_SECONDS, estimatedSeconds);
+                1, 2, repetitions, restSeconds);
+        return new SessionPrescription(1, 2, repetitions, restSeconds, estimatedSeconds);
     }
 
     private int repetitions(UserProfile profile) {
@@ -222,13 +217,6 @@ public class WorkoutPlanService {
             reps = 12;
         }
         return reps;
-    }
-
-    private int preferredRestSeconds(UserProfile profile) {
-        if (profile.getFitnessGoal() == FitnessGoal.STRENGTH) return 90;
-        if (profile.getFitnessGoal() == FitnessGoal.WEIGHT_LOSS) return 45;
-        if (profile.getFitnessGoal() == FitnessGoal.MUSCLE_GAIN) return 75;
-        return 60;
     }
 
     private boolean isBetterFit(SessionPrescription candidate, SessionPrescription current) {
