@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.when;
 
 import com.project.gympilot_backend.user.model.User;
+import com.project.gympilot_backend.profile.repository.UserProfileRepository;
 import com.project.gympilot_backend.vision.model.ExerciseResult;
 import com.project.gympilot_backend.vision.repository.ExerciseResultRepository;
 import com.project.gympilot_backend.workout.dto.CompleteWorkoutSessionRequest;
@@ -43,6 +44,7 @@ class WorkoutSessionServiceTest {
     @Mock WorkoutPlanRepository planRepository;
     @Mock WorkoutPlanItemRepository itemRepository;
     @Mock ExerciseResultRepository resultRepository;
+    @Mock UserProfileRepository profileRepository;
     private WorkoutSessionService service;
     private User user;
     private WorkoutSession session;
@@ -51,12 +53,14 @@ class WorkoutSessionServiceTest {
     @BeforeEach
     void setUp() {
         service = new WorkoutSessionService(
-                sessionRepository, planRepository, itemRepository, resultRepository, "Africa/Lagos");
+                sessionRepository, planRepository, itemRepository, resultRepository,
+                profileRepository, "Africa/Lagos");
         user = User.builder().email("member@example.com").firstName("Gym").lastName("Pilot").build();
         user.setId(UUID.randomUUID());
         WorkoutPlan plan = WorkoutPlan.builder().user(user).weekStartDate(LocalDate.now()).build();
         plan.setId(UUID.randomUUID());
-        Exercise exercise = Exercise.builder().name("Squat").muscleGroup("Lower body").build();
+        Exercise exercise = Exercise.builder().name("Squat").muscleGroup("Lower body")
+                .metValue(java.math.BigDecimal.valueOf(5)).build();
         exercise.setId(UUID.randomUUID());
         planItem = WorkoutPlanItem.builder()
                 .workoutPlan(plan).exercise(exercise).dayOfWeek(DayOfWeek.MONDAY.getValue())
@@ -91,6 +95,8 @@ class WorkoutSessionServiceTest {
         assertThat(result.results()).hasSize(1);
         assertThat(result.results().getFirst().completedSets()).isEqualTo(3);
         assertThat(result.results().getFirst().completedRepetitions()).isEqualTo(10);
+        assertThat(result.results().getFirst().caloriesBurned()).isPositive();
+        assertThat(result.caloriesBurned()).isPositive();
     }
 
     @Test

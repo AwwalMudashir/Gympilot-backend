@@ -6,6 +6,7 @@ import com.project.gympilot_backend.workout.model.WorkoutPhase;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,6 +27,7 @@ public record WorkoutSessionResponse(
         WorkoutPhase currentPhase,
         Integer phaseRemainingSeconds,
         Integer elapsedSeconds,
+        BigDecimal caloriesBurned,
         List<ExerciseResultResponse> results
 ) {
 }

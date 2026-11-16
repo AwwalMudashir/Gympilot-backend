@@ -20,14 +20,14 @@ public class AuthNotificationService {
 
     public void sendVerification(User user, String token) {
         String link = properties.getFrontendBaseUrl() + "/verify-email?token=" + token;
-        send(user, "Verify your GymPilot email", link,
-                "Verify your email to finish setting up your GymPilot account.", "Verify email");
+        send(user, "Verify your GymBro email", link,
+                "Verify your email to finish setting up your GymBro account.", "Verify email");
     }
 
     public void sendPasswordReset(User user, String token) {
         String link = properties.getFrontendBaseUrl() + "/reset-password?token=" + token;
-        send(user, "Reset your GymPilot password", link,
-                "Use this secure link to choose a new GymPilot password.", "Reset password");
+        send(user, "Reset your GymBro password", link,
+                "Use this secure link to choose a new GymBro password.", "Reset password");
     }
 
     private void send(User user, String subject, String link, String message, String actionLabel) {
@@ -38,7 +38,7 @@ public class AuthNotificationService {
         String recipientName = user.getFirstName() + " " + user.getLastName();
         String text = message + System.lineSeparator() + link;
         String html = "<div style=\"font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#121814\">"
-                + "<h1 style=\"color:#3FA36C\">GymPilot</h1>"
+                + "<h1 style=\"color:#3FA36C\">GymBro</h1>"
                 + "<p>Hi " + escapeHtml(user.getFirstName()) + ",</p>"
                 + "<p>" + escapeHtml(message) + "</p>"
                 + "<p><a href=\"" + escapeHtml(link) + "\" style=\"display:inline-block;background:#3FA36C;"

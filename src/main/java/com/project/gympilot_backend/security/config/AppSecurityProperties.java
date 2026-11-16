@@ -20,5 +20,5 @@ public class AppSecurityProperties {
     private int maxFailedLogins = 5;
     private long lockMinutes = 15;
     private boolean exposeDevelopmentTokens;
-    private String frontendBaseUrl = "gympilot://auth";
+    private String frontendBaseUrl = "gymbro://auth";
 }

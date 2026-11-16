@@ -2,6 +2,8 @@ package com.project.gympilot_backend.workout.service;
 
 import com.project.gympilot_backend.common.exception.BadRequestException;
 import com.project.gympilot_backend.common.exception.ResourceNotFoundException;
+import com.project.gympilot_backend.profile.model.UserProfile;
+import com.project.gympilot_backend.profile.repository.UserProfileRepository;
 import com.project.gympilot_backend.user.model.User;
 import com.project.gympilot_backend.vision.model.ExerciseResult;
 import com.project.gympilot_backend.vision.repository.ExerciseResultRepository;
@@ -26,6 +28,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -42,6 +45,7 @@ public class WorkoutSessionService {
     private final WorkoutPlanRepository planRepository;
     private final WorkoutPlanItemRepository itemRepository;
     private final ExerciseResultRepository resultRepository;
+    private final UserProfileRepository profileRepository;
     private final ZoneId applicationZone;
 
     public WorkoutSessionService(
@@ -49,12 +53,14 @@ public class WorkoutSessionService {
             WorkoutPlanRepository planRepository,
             WorkoutPlanItemRepository itemRepository,
             ExerciseResultRepository resultRepository,
+            UserProfileRepository profileRepository,
             @Value("${app.time-zone:Africa/Lagos}") String timeZone
     ) {
         this.sessionRepository = sessionRepository;
         this.planRepository = planRepository;
         this.itemRepository = itemRepository;
         this.resultRepository = resultRepository;
+        this.profileRepository = profileRepository;
         this.applicationZone = ZoneId.of(timeZone);
     }
 
@@ -108,7 +114,8 @@ public class WorkoutSessionService {
                     "WORKOUT_PROGRESS_INVALID", "The saved set position is outside this exercise");
         }
 
-        saveProgress(session, planItems, request.results(), false);
+        session.setCaloriesBurned(saveProgress(
+                session, planItems, request.results(), false, weightKg(user)));
         session.setElapsedSeconds(currentElapsedSeconds(session));
         session.setActiveSince(null);
         session.setCurrentExerciseIndex(request.currentExerciseIndex());
@@ -129,7 +136,8 @@ public class WorkoutSessionService {
                 session.getWorkoutPlan().getId(), DayOfWeek.of(session.getWorkoutDay()));
         int elapsedSeconds = currentElapsedSeconds(session);
         enforceMinimumDuration(planItems, request.results(), elapsedSeconds);
-        saveProgress(session, planItems, request.results(), true);
+        session.setCaloriesBurned(saveProgress(
+                session, planItems, request.results(), true, weightKg(user)));
         session.setElapsedSeconds(elapsedSeconds);
         session.setActiveSince(null);
         session.setStatus(SessionStatus.COMPLETED);
@@ -169,6 +177,7 @@ public class WorkoutSessionService {
         session.setStartedAt(null);
         session.setActiveSince(null);
         session.setElapsedSeconds(0);
+        session.setCaloriesBurned(BigDecimal.ZERO);
         session.setCurrentExerciseIndex(0);
         session.setCurrentSetNumber(1);
         session.setCurrentPhase(WorkoutPhase.WARM_UP);
@@ -228,7 +237,8 @@ public class WorkoutSessionService {
                 session.getScheduledDate(), session.getStartedAt(), session.getCompletedAt(), session.getActiveSince(),
                 session.getStatus(), session.getDifficultyRating(), session.getNotes(),
                 session.getCurrentExerciseIndex(), session.getCurrentSetNumber(), session.getCurrentPhase(),
-                session.getPhaseRemainingSeconds(), session.getElapsedSeconds(), results);
+                session.getPhaseRemainingSeconds(), session.getElapsedSeconds(),
+                session.getCaloriesBurned(), results);
     }
 
     private BadRequestException invalidState(String message) {
@@ -277,11 +287,12 @@ public class WorkoutSessionService {
         return (int) Math.min(Integer.MAX_VALUE, elapsed);
     }
 
-    private void saveProgress(
+    private BigDecimal saveProgress(
             WorkoutSession session,
             List<WorkoutPlanItem> planItems,
             List<ExerciseCompletionRequest> requestedResults,
-            boolean requireComplete
+            boolean requireComplete,
+            BigDecimal weightKg
     ) {
         Map<UUID, WorkoutPlanItem> planned = planItems.stream().collect(Collectors.toMap(
                 item -> item.getExercise().getId(), Function.identity()));
@@ -324,9 +335,22 @@ public class WorkoutSessionService {
             result.setPlannedRepetitions(item.getTargetRepetitions());
             result.setCompletedRepetitions(completion.completedRepetitions());
             result.setSkipped(completion.skipped());
+            result.setCaloriesBurned(CalorieCalculator.estimateCompleted(
+                    item, weightKg, completion.completedSets(),
+                    completion.completedRepetitions(), completion.skipped()));
             return result;
         }).toList();
         if (!results.isEmpty()) resultRepository.saveAll(results);
+        return results.stream()
+                .map(ExerciseResult::getCaloriesBurned)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal weightKg(User user) {
+        return profileRepository.findByUserId(user.getId())
+                .map(UserProfile::getWeightKg)
+                .orElse(BigDecimal.valueOf(70));
     }
 
     private String trimToNull(String value) {

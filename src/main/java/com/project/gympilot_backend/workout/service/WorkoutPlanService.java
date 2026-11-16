@@ -20,6 +20,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.temporal.TemporalAdjusters;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -138,6 +139,9 @@ public class WorkoutPlanService {
     }
 
     private WorkoutPlanResponse response(WorkoutPlan plan) {
+        BigDecimal weightKg = profileRepository.findByUserId(plan.getUser().getId())
+                .map(UserProfile::getWeightKg)
+                .orElse(BigDecimal.valueOf(70));
         List<WorkoutPlanItem> items = itemRepository
                 .findAllByWorkoutPlanIdOrderByDayOfWeekAscItemOrderAsc(plan.getId());
         Map<DayOfWeek, List<WorkoutPlanItem>> grouped = new LinkedHashMap<>();
@@ -146,10 +150,18 @@ public class WorkoutPlanService {
                 .forEach(item -> grouped.computeIfAbsent(DayOfWeek.of(item.getDayOfWeek()), ignored -> new ArrayList<>())
                         .add(item));
         List<WorkoutDayResponse> days = grouped.entrySet().stream()
-                .map(entry -> new WorkoutDayResponse(
-                        entry.getKey(), dayTitle(entry.getValue()),
-                        WorkoutTimingCalculator.estimateMinutes(entry.getValue()),
-                        entry.getValue().stream().map(WorkoutPlanItemResponse::from).toList()))
+                .map(entry -> {
+                    List<WorkoutPlanItemResponse> exerciseResponses = entry.getValue().stream()
+                            .map(item -> WorkoutPlanItemResponse.from(item, weightKg))
+                            .toList();
+                    BigDecimal estimatedCalories = exerciseResponses.stream()
+                            .map(WorkoutPlanItemResponse::estimatedCalories)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    return new WorkoutDayResponse(
+                            entry.getKey(), dayTitle(entry.getValue()),
+                            WorkoutTimingCalculator.estimateMinutes(entry.getValue()),
+                            estimatedCalories, exerciseResponses);
+                })
                 .toList();
         return new WorkoutPlanResponse(
                 plan.getId(), plan.getWeekStartDate(), plan.getStatus(), plan.getExplanation(),

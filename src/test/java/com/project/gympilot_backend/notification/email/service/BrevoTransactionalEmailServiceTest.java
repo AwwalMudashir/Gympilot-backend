@@ -22,8 +22,8 @@ class BrevoTransactionalEmailServiceTest {
         properties.setEnabled(true);
         properties.getBrevo().setBaseUrl("https://api.brevo.com/v3");
         properties.getBrevo().setApiKey("test-api-key");
-        properties.getBrevo().setSenderEmail("hello@gympilot.example");
-        properties.getBrevo().setSenderName("GymPilot");
+        properties.getBrevo().setSenderEmail("hello@gymbro.example");
+        properties.getBrevo().setSenderName("GymBro");
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         BrevoTransactionalEmailService service = new BrevoTransactionalEmailService(properties, builder);
@@ -33,9 +33,9 @@ class BrevoTransactionalEmailServiceTest {
                 .andExpect(header("api-key", "test-api-key"))
                 .andExpect(content().json("""
                         {
-                          "sender":{"name":"GymPilot","email":"hello@gympilot.example"},
+                          "sender":{"name":"GymBro","email":"hello@gymbro.example"},
                           "to":[{"name":"Gym Member","email":"member@example.com"}],
-                          "subject":"Verify your GymPilot email",
+                          "subject":"Verify your GymBro email",
                           "textContent":"Open the link",
                           "htmlContent":"<p>Open the link</p>"
                         }
@@ -45,7 +45,7 @@ class BrevoTransactionalEmailServiceTest {
         service.send(new TransactionalEmail(
                 "member@example.com",
                 "Gym Member",
-                "Verify your GymPilot email",
+                "Verify your GymBro email",
                 "Open the link",
                 "<p>Open the link</p>"));
 

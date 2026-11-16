@@ -34,6 +34,9 @@ public class ExerciseResult extends BaseEntity {
     @Column(name = "completed_repetitions")
     private Integer completedRepetitions;
     @Builder.Default
+    @Column(name = "calories_burned", nullable = false, precision = 8, scale = 2)
+    private BigDecimal caloriesBurned = BigDecimal.ZERO;
+    @Builder.Default
     @Column(name = "skipped", nullable = false)
     private boolean skipped = false;
     @Column(name = "average_rep_duration_seconds", precision = 6, scale = 2)

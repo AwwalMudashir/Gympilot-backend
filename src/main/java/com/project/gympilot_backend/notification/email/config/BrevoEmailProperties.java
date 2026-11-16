@@ -25,6 +25,6 @@ public class BrevoEmailProperties {
         private String baseUrl = "https://api.brevo.com/v3";
         private String apiKey = "";
         private String senderEmail = "";
-        private String senderName = "GymPilot";
+        private String senderName = "GymBro";
     }
 }

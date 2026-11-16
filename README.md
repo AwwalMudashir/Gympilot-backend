@@ -1,6 +1,6 @@
-# GymPilot Backend
+# GymBro Backend
 
-Spring Boot 4 / Java 21 API for GymPilot Vision. PostgreSQL is managed with Flyway and authentication uses short-lived JWT access tokens plus rotated, opaque refresh tokens.
+Spring Boot 4 / Java 21 API for GymBro. PostgreSQL is managed with Flyway and authentication uses short-lived JWT access tokens plus rotated, opaque refresh tokens.
 
 ## Local setup
 
@@ -107,7 +107,7 @@ Register and verify a sender in Brevo, then add these server-side values to `.en
 EMAIL_DELIVERY_ENABLED=true
 BREVO_API_KEY=your-brevo-api-key
 BREVO_SENDER_EMAIL=verified-sender@example.com
-BREVO_SENDER_NAME=GymPilot
+BREVO_SENDER_NAME=GymBro
 ```
 
 Registration/resend-verification and password recovery use Brevo's transactional email API. Keep `EMAIL_DELIVERY_ENABLED=false` until the sender and API key are ready; no email secret belongs in the React Native project.

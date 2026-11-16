@@ -12,6 +12,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -53,6 +54,9 @@ public class WorkoutSession extends BaseEntity {
     @Column(name = "elapsed_seconds", nullable = false)
     @Builder.Default
     private Integer elapsedSeconds = 0;
+    @Column(name = "calories_burned", nullable = false, precision = 8, scale = 2)
+    @Builder.Default
+    private BigDecimal caloriesBurned = BigDecimal.ZERO;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private SessionStatus status;

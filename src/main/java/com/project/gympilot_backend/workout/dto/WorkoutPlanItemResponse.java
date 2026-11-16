@@ -1,6 +1,8 @@
 package com.project.gympilot_backend.workout.dto;
 
 import com.project.gympilot_backend.workout.model.WorkoutPlanItem;
+import com.project.gympilot_backend.workout.service.CalorieCalculator;
+import java.math.BigDecimal;
 import java.util.UUID;
 
 public record WorkoutPlanItemResponse(
@@ -10,12 +12,13 @@ public record WorkoutPlanItemResponse(
         int targetRepetitions,
         int restSeconds,
         int order,
-        boolean cameraSupported
+        boolean cameraSupported,
+        BigDecimal estimatedCalories
 ) {
-    public static WorkoutPlanItemResponse from(WorkoutPlanItem item) {
+    public static WorkoutPlanItemResponse from(WorkoutPlanItem item, BigDecimal weightKg) {
         return new WorkoutPlanItemResponse(
-                item.getId(), ExerciseResponse.from(item.getExercise()), item.getSets(),
+                item.getId(), ExerciseResponse.from(item.getExercise(), weightKg), item.getSets(),
                 item.getTargetRepetitions(), item.getRestSeconds(), item.getItemOrder(),
-                item.isCameraSupported());
+                item.isCameraSupported(), CalorieCalculator.estimatePlanItem(item, weightKg));
     }
 }
