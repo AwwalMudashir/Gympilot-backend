@@ -1,11 +1,10 @@
 services:
   postgres:
     image: postgres:17-alpine
-    container_name: gympilot-postgres
     environment:
       POSTGRES_DB: gympilot
       POSTGRES_USER: gympilot
-      POSTGRES_PASSWORD: gympilot
+      POSTGRES_PASSWORD: ${LOCAL_DB_PASSWORD:-gympilot}
     ports:
       - "5432:5432"
     volumes:
@@ -15,6 +14,27 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      PORT: 8080
+      DB_URL: jdbc:postgresql://postgres:5432/gympilot
+      DB_USERNAME: gympilot
+      DB_PASSWORD: ${LOCAL_DB_PASSWORD:-gympilot}
+      PLAN_EXPLANATION_AI_ENABLED: ${PLAN_EXPLANATION_AI_ENABLED:-false}
+      SPRING_AI_CHAT_MODEL: ${SPRING_AI_CHAT_MODEL:-none}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   gympilot_postgres_data:
