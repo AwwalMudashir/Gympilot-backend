@@ -1,0 +1,46 @@
+services:
+  - type: web
+    name: gymbro-api
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: DB_URL
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_ISSUER
+        value: gymbro-api
+      - key: APP_TIME_ZONE
+        value: Africa/Lagos
+      - key: FRONTEND_BASE_URL
+        value: gymbro://auth
+      - key: EXPOSE_DEVELOPMENT_TOKENS
+        value: "false"
+      - key: EMAIL_DELIVERY_ENABLED
+        value: "true"
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_SENDER_EMAIL
+        sync: false
+      - key: BREVO_SENDER_NAME
+        value: GymBro
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: CLOUDINARY_FOLDER
+        value: gymbro
+      - key: PLAN_EXPLANATION_AI_ENABLED
+        value: "false"
+      - key: SPRING_AI_CHAT_MODEL
+        value: none
