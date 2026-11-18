@@ -12,18 +12,23 @@ import com.project.gympilot_backend.auth.dto.ResetPasswordRequest;
 import com.project.gympilot_backend.auth.dto.TokenDeliveryResponse;
 import com.project.gympilot_backend.auth.dto.VerifyEmailRequest;
 import com.project.gympilot_backend.auth.service.AuthService;
+import com.project.gympilot_backend.auth.service.EmailVerificationPageRenderer;
+import com.project.gympilot_backend.common.exception.ApiException;
 import com.project.gympilot_backend.common.response.ApiResponse;
 import com.project.gympilot_backend.security.service.CurrentUserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -32,6 +37,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
     private final AuthService authService;
     private final CurrentUserService currentUserService;
+    private final EmailVerificationPageRenderer emailVerificationPageRenderer;
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<RegistrationResponse>> register(
@@ -90,6 +96,20 @@ public class AuthController {
         return ApiResponse.success("Email verified", null, request.getRequestURI());
     }
 
+    @GetMapping(value = "/verify-email-link", produces = MediaType.TEXT_HTML_VALUE)
+    public ResponseEntity<String> verifyEmailLink(
+            @RequestParam(name = "token", required = false) String token) {
+        if (token == null || token.isBlank()) {
+            return verificationPageResponse(HttpStatus.BAD_REQUEST, emailVerificationPageRenderer.failure());
+        }
+        try {
+            authService.verifyEmail(token);
+            return verificationPageResponse(HttpStatus.OK, emailVerificationPageRenderer.success());
+        } catch (ApiException exception) {
+            return verificationPageResponse(exception.getStatus(), emailVerificationPageRenderer.failure());
+        }
+    }
+
     @PostMapping("/change-password")
     public ApiResponse<Void> changePassword(
             Authentication authentication,
@@ -104,5 +124,16 @@ public class AuthController {
             Authentication authentication, HttpServletRequest request) {
         var user = currentUserService.require(authentication);
         return ApiResponse.success("Authenticated user retrieved", authService.currentUser(user), request.getRequestURI());
+    }
+
+    private ResponseEntity<String> verificationPageResponse(HttpStatus status, String page) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.TEXT_HTML);
+        headers.setCacheControl("no-store, max-age=0");
+        headers.set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'");
+        headers.set("Referrer-Policy", "no-referrer");
+        headers.set("X-Frame-Options", "DENY");
+        headers.set("X-Content-Type-Options", "nosniff");
+        return ResponseEntity.status(status).headers(headers).body(page);
     }
 }

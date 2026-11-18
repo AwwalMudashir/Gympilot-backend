@@ -17,6 +17,7 @@ import java.time.ZoneId;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,9 +27,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class VisionWorkoutResultService {
     private static final String SQUAT_CODE = "BODYWEIGHT_SQUAT";
-    private static final Set<String> SUPPORTED_FORM_FLAGS = Set.of(
-            "INSUFFICIENT_DEPTH",
-            "EXCESSIVE_FORWARD_LEAN"
+    private static final String CURL_CODE = "BICEP_CURL";
+    private static final Map<String, Set<String>> SUPPORTED_FORM_FLAGS = Map.of(
+            SQUAT_CODE, Set.of("INSUFFICIENT_DEPTH", "EXCESSIVE_FORWARD_LEAN"),
+            CURL_CODE, Set.of("INCOMPLETE_RANGE", "ELBOW_DRIFT")
     );
 
     private final WorkoutSessionRepository sessionRepository;
@@ -54,10 +56,11 @@ public class VisionWorkoutResultService {
         requireActiveToday(session);
 
         WorkoutPlanItem item = requirePlannedExercise(session, request.exerciseId());
-        if (!item.isCameraSupported() || !SQUAT_CODE.equals(item.getExercise().getCode())) {
+        String exerciseCode = item.getExercise().getCode();
+        if (!item.isCameraSupported() || !SUPPORTED_FORM_FLAGS.containsKey(exerciseCode)) {
             throw new BadRequestException(
                     "VISION_EXERCISE_UNSUPPORTED",
-                    "Live vision tracking currently supports Bodyweight Squat only");
+                    "Live vision tracking supports Bodyweight Squat and Dumbbell Bicep Curl only");
         }
         if (request.completedSets() > item.getSets()
                 || request.completedRepetitions() > item.getTargetRepetitions()) {
@@ -66,7 +69,7 @@ public class VisionWorkoutResultService {
                     "The vision result exceeds the sets or repetitions planned for this exercise");
         }
 
-        List<String> formFlags = normalizeFormFlags(request.formFlags());
+        List<String> formFlags = normalizeFormFlags(exerciseCode, request.formFlags());
         ExerciseResult result = resultRepository
                 .findByWorkoutSessionIdAndExerciseId(session.getId(), item.getExercise().getId())
                 .orElseGet(() -> ExerciseResult.builder()
@@ -122,14 +125,15 @@ public class VisionWorkoutResultService {
                         "EXERCISE_NOT_IN_SESSION", "This exercise is not part of the active workout"));
     }
 
-    private List<String> normalizeFormFlags(List<String> submittedFlags) {
+    private List<String> normalizeFormFlags(String exerciseCode, List<String> submittedFlags) {
         if (submittedFlags == null || submittedFlags.isEmpty()) return List.of();
 
+        Set<String> supportedFlags = SUPPORTED_FORM_FLAGS.getOrDefault(exerciseCode, Set.of());
         LinkedHashSet<String> normalized = new LinkedHashSet<>();
         for (String submittedFlag : submittedFlags) {
             if (submittedFlag == null || submittedFlag.isBlank()) continue;
             String flag = submittedFlag.trim().toUpperCase(Locale.ROOT);
-            if (!SUPPORTED_FORM_FLAGS.contains(flag)) {
+            if (!supportedFlags.contains(flag)) {
                 throw new BadRequestException(
                         "VISION_FORM_FLAG_INVALID", "The vision result contains an unsupported form flag");
             }

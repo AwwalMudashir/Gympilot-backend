@@ -21,4 +21,5 @@ public class AppSecurityProperties {
     private long lockMinutes = 15;
     private boolean exposeDevelopmentTokens;
     private String frontendBaseUrl = "gymbro://auth";
+    private String publicApiBaseUrl = "http://localhost:8080";
 }

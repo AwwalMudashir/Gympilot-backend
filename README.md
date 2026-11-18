@@ -145,9 +145,12 @@ EMAIL_DELIVERY_ENABLED=true
 BREVO_API_KEY=your-brevo-api-key
 BREVO_SENDER_EMAIL=verified-sender@example.com
 BREVO_SENDER_NAME=GymBro
+PUBLIC_API_BASE_URL=http://localhost:8080
 ```
 
 Registration/resend-verification and password recovery use Brevo's transactional email API. Keep `EMAIL_DELIVERY_ENABLED=false` until the sender and API key are ready; no email secret belongs in the React Native project.
+
+Email verification links open a browser-safe backend page. For a deployed API, set `PUBLIC_API_BASE_URL` to its public HTTPS origin (for example, `https://your-api.onrender.com`) so verification works on devices that do not have GymBro installed. The result page also offers an optional **Open GymBro** deep link.
 
 For local UI work only, `EXPOSE_DEVELOPMENT_TOKENS=true` includes email-verification/reset tokens in the response. Keep it `false` outside local development. Production startup rejects the built-in development JWT secret.
 

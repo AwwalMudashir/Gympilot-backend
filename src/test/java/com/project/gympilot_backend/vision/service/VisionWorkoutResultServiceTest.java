@@ -103,6 +103,36 @@ class VisionWorkoutResultServiceTest {
     }
 
     @Test
+    void savesBicepCurlMetricsWithCurlSpecificFormFlags() {
+        exercise.setCode("BICEP_CURL");
+        exercise.setName("Dumbbell Bicep Curl");
+        when(sessionRepository.findById(session.getId())).thenReturn(Optional.of(session));
+        when(planItemRepository.findAllByWorkoutPlanIdOrderByDayOfWeekAscItemOrderAsc(any()))
+                .thenReturn(List.of(planItem));
+        when(resultRepository.findByWorkoutSessionIdAndExerciseId(session.getId(), exercise.getId()))
+                .thenReturn(Optional.empty());
+        when(resultRepository.save(any(ExerciseResult.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = service.save(user, request(List.of("elbow_drift", "INCOMPLETE_RANGE")));
+
+        assertThat(response.completedRepetitions()).isEqualTo(10);
+        assertThat(response.formFlags()).containsExactly("ELBOW_DRIFT", "INCOMPLETE_RANGE");
+    }
+
+    @Test
+    void rejectsSquatFormFlagForBicepCurl() {
+        exercise.setCode("BICEP_CURL");
+        when(sessionRepository.findById(session.getId())).thenReturn(Optional.of(session));
+        when(planItemRepository.findAllByWorkoutPlanIdOrderByDayOfWeekAscItemOrderAsc(any()))
+                .thenReturn(List.of(planItem));
+
+        assertThatThrownBy(() -> service.save(user, request(List.of("INSUFFICIENT_DEPTH"))))
+                .isInstanceOfSatisfying(BadRequestException.class, error ->
+                        assertThat(error.getCode()).isEqualTo("VISION_FORM_FLAG_INVALID"));
+    }
+
+    @Test
     void rejectsAnUnsupportedFormFlag() {
         when(sessionRepository.findById(session.getId())).thenReturn(Optional.of(session));
         when(planItemRepository.findAllByWorkoutPlanIdOrderByDayOfWeekAscItemOrderAsc(any()))

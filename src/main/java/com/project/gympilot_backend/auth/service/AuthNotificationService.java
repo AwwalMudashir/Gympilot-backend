@@ -4,6 +4,8 @@ import com.project.gympilot_backend.security.config.AppSecurityProperties;
 import com.project.gympilot_backend.notification.email.model.TransactionalEmail;
 import com.project.gympilot_backend.notification.email.service.TransactionalEmailService;
 import com.project.gympilot_backend.user.model.User;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -19,7 +21,9 @@ public class AuthNotificationService {
     }
 
     public void sendVerification(User user, String token) {
-        String link = properties.getFrontendBaseUrl() + "/verify-email?token=" + token;
+        String link = withoutTrailingSlash(properties.getPublicApiBaseUrl())
+                + "/api/auth/verify-email-link?token="
+                + URLEncoder.encode(token, StandardCharsets.UTF_8);
         send(user, "Verify your GymBro email", link,
                 "Verify your email to finish setting up your GymBro account.", "Verify email");
     }
@@ -57,5 +61,9 @@ public class AuthNotificationService {
     private String escapeHtml(String value) {
         return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
                 .replace("\"", "&quot;").replace("'", "&#39;");
+    }
+
+    private String withoutTrailingSlash(String value) {
+        return value == null ? "" : value.trim().replaceAll("/+$", "");
     }
 }
