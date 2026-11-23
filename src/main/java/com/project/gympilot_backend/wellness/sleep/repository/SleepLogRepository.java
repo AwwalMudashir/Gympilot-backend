@@ -1,10 +1,14 @@
 package com.project.gympilot_backend.wellness.sleep.repository;
 
 import com.project.gympilot_backend.wellness.sleep.model.SleepLog;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface SleepLogRepository extends JpaRepository<SleepLog, UUID> {
     List<SleepLog> findAllByUserIdOrderBySleptAtDesc(UUID userId);
+
+    List<SleepLog> findAllByUserIdAndWokeAtBetweenOrderByWokeAtAsc(
+            UUID userId, Instant from, Instant to);
 }
