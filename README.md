@@ -136,6 +136,22 @@ OLLAMA_MODEL=llama3.2:3b
 
 If Ollama is disabled, unavailable, or returns empty content, the API stores a deterministic explanation instead.
 
+## Coach and reminder endpoints
+
+- `GET /api/coach/daily` returns or creates today's evidence-based brief.
+- `POST /api/coach/daily/regenerate` refreshes today's brief from current data.
+- `GET /api/coach/weekly` returns or creates the current weekly review.
+- `POST /api/coach/weekly/regenerate` refreshes the weekly review.
+- `PUT /api/coach/briefs/{briefId}/feedback` stores `HELPFUL` or `NOT_USEFUL`
+  feedback for a brief owned by the authenticated user.
+- `GET /api/notifications/preferences` returns reminder preferences.
+- `PUT /api/notifications/preferences` validates and updates reminder preferences.
+
+Workout, hydration, bedtime and morning check-in reminders are scheduled
+locally by the React Native application after the user grants notification
+permission. No Firebase device token or server-side push service is required
+for this MVP.
+
 ### Brevo transactional email
 
 Register and verify a sender in Brevo, then add these server-side values to `.env`:

@@ -34,6 +34,11 @@ public class CoachBrief extends BaseEntity {
     private String cautions;
     @Column(name = "context_snapshot", columnDefinition = "TEXT")
     private String contextSnapshot;
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private CoachFeedback feedback;
+    @Column(name = "feedback_at")
+    private Instant feedbackAt;
     @Column(name = "generated_at", nullable = false)
     private Instant generatedAt;
 }
