@@ -48,5 +48,13 @@ services:
         value: none
       - key: COACH_AI_ENABLED
         value: "false"
+      - key: OLLAMA_BASE_URL
+        value: https://ollama.com/v1
+      - key: OLLAMA_API_KEY
+        sync: false
+      - key: OLLAMA_MODEL
+        value: gemma4:31b
+      - key: OLLAMA_TEMPERATURE
+        value: "0.2"
       - key: SPRING_AI_RETRY_MAX_ATTEMPTS
         value: "1"
