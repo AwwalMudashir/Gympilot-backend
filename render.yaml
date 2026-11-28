@@ -46,3 +46,7 @@ services:
         value: "false"
       - key: SPRING_AI_CHAT_MODEL
         value: none
+      - key: COACH_AI_ENABLED
+        value: "false"
+      - key: SPRING_AI_RETRY_MAX_ATTEMPTS
+        value: "1"
